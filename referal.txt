@@ -1,0 +1,22 @@
+create two folders frontend and backend
+
+in frontnend folder u create your react project
+
+in backend folder dont initiate npm
+
+npm init on root folder itslef 
+
+
+
+
+put confidential things like port number on a separate file in root folder called .env 
+use dotenv module to acces the enevi variable using .config()
+
+IMPORTANT
+it would make server,js vvv big if we put all the routes in it with the function handling the route (req,res)
+
+so we will create routes folder to have sub routes
+
+we will have another folder called controller for hadnling the routes
+
+ONR JS FILE CAN HAVE ONLY ONE DEFAULT EXPORT, SO WHILE IMPORTING IT ONE OTHER JS FILE...U CAN NAME IT ANYTHING
