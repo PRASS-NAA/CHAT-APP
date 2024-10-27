@@ -1,13 +1,15 @@
 import { encrypt, decrypt } from '../utils/cryptoUtils.js';
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
-import { getReceiverSocketId, io } from "../socket/socket.js"
+import { getReceiverSocketId, io } from "../socket/socket.js";
+import { logMessage } from "../utils/logger.js";
 
 export const sendMessage = async (req, res) => {
     try {
         const { message } = req.body;
         const { id: receiverId } = req.params;
         const senderId = req.user._id;
+        const senderUsername = req.user.username; // Assuming username is in req.user
 
         // Encrypt the message before storing it
         const encryptedMessage = encrypt(message);
@@ -34,39 +36,42 @@ export const sendMessage = async (req, res) => {
 
         await Promise.all([conversation.save(), newMessage.save()]);
 
+        // Log the message sending activity
+        logMessage(`${senderUsername} -> sent message to -> ${receiverId}`);
+
         // Decrypt the message before emitting it through Socket.IO
         const decryptedMessage = decrypt(encryptedMessage);
-		newMessage.message = decryptedMessage;
+        newMessage.message = decryptedMessage;
 
         // SOCKET IO FUNCTIONALITY
         const receiverSocketId = getReceiverSocketId(receiverId);
         if (receiverSocketId) {
-            // Emit the decrypted message to the receiver
             io.to(receiverSocketId).emit("newMessage", {
-                ...newMessage._doc, // Include all other message fields
-                message: decryptedMessage, // Send the decrypted message
+                ...newMessage._doc,
+                message: decryptedMessage,
             });
         }
 
         res.status(201).json(newMessage);
     } catch (error) {
+        logMessage(`Error in sendMessage: ${error.message}`);
         console.log("Error in sendMessage controller: ", error.message);
         res.status(500).json({ error: "Internal server error" });
     }
 };
 
-
 export const getMessages = async (req, res) => {
     try {
         const { id: userToChatId } = req.params;
         const senderId = req.user._id;
+        const username = req.user.username;
 
         const conversation = await Conversation.findOne({
             participants: { $all: [senderId, userToChatId] },
         }).populate("messages");
 
         if (!conversation) {
-            console.log("No conversation found.");
+            logMessage(`${username} -> attempted to fetch messages -> no conversation found`);
             return res.status(200).json([]);
         }
 
@@ -74,19 +79,20 @@ export const getMessages = async (req, res) => {
         const messages = conversation.messages.map((msg) => {
             try {
                 const decryptedMessage = decrypt(msg.message);
-                // console.log("Decrypted message: ", decryptedMessage);
                 return {
-                    ...msg._doc, // Spread operator to include other message fields
-                    message: decryptedMessage, // Replace the encrypted message with the decrypted one
+                    ...msg._doc,
+                    message: decryptedMessage,
                 };
             } catch (error) {
-                console.log("Failed to decrypt message: ", error.message);
-                return msg; // Return the original message if decryption fails
+                logMessage(`Failed to decrypt message for user ${username}`);
+                return msg;
             }
         });
 
+        logMessage(`${username} -> fetched messages with -> ${userToChatId}`);
         res.status(200).json(messages);
     } catch (error) {
+        logMessage(`Error in getMessages: ${error.message}`);
         console.log("Error in getMessages controller: ", error.message);
         res.status(500).json({ error: "Internal server error" });
     }
@@ -94,26 +100,28 @@ export const getMessages = async (req, res) => {
 
 export const deleteMessage = async (req, res) => {
     try {
-        const { messageId } = req.body;  // Changed from req.params to req.body to match frontend
+        const { messageId } = req.body;
         const userId = req.user._id;
+        const username = req.user.username;
 
         const message = await Message.findById(messageId);
         
         if (!message) {
+            logMessage(`${username} -> attempted to delete non-existent message`);
             return res.status(404).json({ error: "Message not found" });
         }
 
-        // Check if the user is the sender of the message
         if (message.senderId.toString() !== userId.toString()) {
+            logMessage(`${username} -> unauthorized attempt to delete message`);
             return res.status(403).json({ error: "Unauthorized to delete this message" });
         }
 
-        // Update the message content instead of deleting
         const encryptedDeletedMessage = encrypt("This message has been deleted");
         message.message = encryptedDeletedMessage;
         await message.save();
 
-        // Emit socket event to update the message in real-time
+        logMessage(`${username} -> deleted message -> ${messageId}`);
+
         const receiverSocketId = getReceiverSocketId(message.receiverId);
         if (receiverSocketId) {
             io.to(receiverSocketId).emit("messageDeleted", {
@@ -127,6 +135,7 @@ export const deleteMessage = async (req, res) => {
             message: "This message has been deleted"
         });
     } catch (error) {
+        logMessage(`Error in deleteMessage: ${error.message}`);
         console.log("Error in deleteMessage controller: ", error.message);
         res.status(500).json({ error: "Internal server error" });
     }
