@@ -5,47 +5,48 @@ import useConversation from "../../zustand/useConversation";
 const Conversations = ({ conversations = [], loading, onSelectChat }) => {
     const { setReceiverId } = useReceiver();
     const { setSelectedConversation } = useConversation();
-
+  
     const handleContactClick = (contact) => {
-        console.log("Contact clicked:", contact._id);
-        localStorage.setItem("receiverId", contact._id); // Store the receiver ID
-        setReceiverId(contact._id); // Update the receiver ID in global state
-        setSelectedConversation(contact); // Update selected conversation in Zustand
+      localStorage.setItem("receiverId", contact._id);
+      setReceiverId(contact._id);
+      setSelectedConversation(contact);
     };
-
-    if (loading) return <p>Loading...</p>;
-
-    return (
-        <div className="overflow-y-auto max-h-[400px]">
-            {conversations.length > 0 ? (
-                conversations.map((contact) => (
-                    <div 
-                        key={contact._id} 
-                        className='flex gap-2 items-center hover:bg-sky-500 rounded p-2 py-1 cursor-pointer'
-                        onClick={() => handleContactClick(contact)}
-                    >
-                        <div className='avatar online'>
-                            <div className='w-12 rounded-full'>
-                                <img
-                                    src={contact.avatar || 'https://cdn0.iconfinder.com/data/icons/communication-line-10/24/account_profile_user_contact_person_avatar_placeholder-512.png'}
-                                    alt={`${contact.fullName}'s avatar`}
-                                />
-                            </div>
-                        </div>
-                        <div className='flex flex-col flex-1'>
-                            <div className='flex gap-3 justify-between'>
-                                <p className='font-bold text-gray-200'>{contact.fullName}</p>
-                                <span className='text-xl'>🎃</span>
-                            </div>
-                        </div>
-                    </div>
-                ))
-            ) : (
-                <p>No contacts found.</p>
-            )}
-            <div className='divider my-0 py-0 h-1' />
+  
+    if (loading) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
         </div>
+      );
+    }
+  
+    return (
+      <div className="flex-1 overflow-y-auto">
+        {conversations.length > 0 ? (
+          conversations.map((contact) => (
+            <div
+              key={contact._id}
+              onClick={() => handleContactClick(contact)}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-700 cursor-pointer transition-colors"
+            >
+              
+              <div className="flex-1 min-w-0">
+                <h3 className="text-gray-200 font-medium truncate">
+                  {contact.fullName}
+                </h3>
+                <p className="text-gray-400 text-sm truncate">
+                  Click to start chatting
+                </p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-400">
+            No contacts found
+          </div>
+        )}
+      </div>
     );
-};
+  };
 
-export default Conversations;
+export default Conversations
